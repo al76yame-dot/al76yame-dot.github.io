@@ -3,7 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>وثائقي السابقة</title>
+<script>
+if('serviceWorker' in navigator && !sessionStorage.getItem('sw_cleaned')){
+  navigator.serviceWorker.getRegistrations().then(async rs=>{
+    if(rs.length>0){
+      sessionStorage.setItem('sw_cleaned','1');
+      for(const r of rs){await r.unregister()}
+      if('caches' in window){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}
+      location.reload();
+    }
+  });
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}

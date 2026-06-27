@@ -3,7 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>OK to Board</title>
+<script>
+if('serviceWorker' in navigator && !sessionStorage.getItem('sw_cleaned')){
+  navigator.serviceWorker.getRegistrations().then(async rs=>{
+    if(rs.length>0){
+      sessionStorage.setItem('sw_cleaned','1');
+      for(const r of rs){await r.unregister()}
+      if('caches' in window){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}
+      location.reload();
+    }
+  });
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
@@ -276,7 +291,7 @@ async function lookupPassenger(){
     ]);
     const prev=bp[0]||ev[0];
     if(!prev){hint.textContent='✨ مسافر جديد';hint.style.color='#666';return}
-    hint.innerHTML='✓ مسافر سابق — <a href="javascript:void(0)" onclick="fillPrev('+ "'"+prev.id+"'"+ ',\\''+(bp[0]?'bp':'ev')+'\\')" style="color:#198754;text-decoration:underline">تعبئة بياناته</a>';
+    hint.innerHTML='✓ مسافر سابق — <a href="javascript:void(0)" onclick="fillPrev()" style="color:#198754;text-decoration:underline">تعبئة بياناته</a>';
     hint.style.color='#198754';
     window._lastPrev=prev;
   }catch(e){hint.textContent=''}
@@ -313,11 +328,19 @@ function sendWhatsApp(){
 async function init(){
   const slug=new URLSearchParams(location.search).get('co');
   if(!slug)return showStatus('⚠ يجب تحديد الشركة: <code>?co=company-slug</code>');
+  showStatus('⏳ جاري التحميل... ('+slug+')');
 
-  const r=await fetch(SB+'/rest/v1/companies?slug=eq.'+encodeURIComponent(slug)+'&active=eq.true&select=*',{headers:H});
-  const arr=await r.json();
+  let arr;
+  try{
+    const ctrl=new AbortController();const tm=setTimeout(()=>ctrl.abort(),15000);
+    const r=await fetch(SB+'/rest/v1/companies?slug=eq.'+encodeURIComponent(slug)+'&active=eq.true&select=*',{headers:H,signal:ctrl.signal});
+    clearTimeout(tm);
+    if(!r.ok)return showStatus('⚠ فشل الاتصال بقاعدة البيانات: HTTP '+r.status);
+    arr=await r.json();
+  }catch(e){return showStatus('⚠ فشل الاتصال: '+e.message+'<br>تحقق من الإنترنت أو جرب VPN')}
   const data=arr&&arr[0];
   if(!data)return showStatus('⚠ الشركة "'+slug+'" غير موجودة أو معطّلة');
+  document.getElementById('status').innerHTML='';
 
   company=data;
   document.documentElement.style.setProperty('--c',data.primary_color||'#1a4d8f');
