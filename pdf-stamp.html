@@ -30,6 +30,9 @@ button.alt{background:#fff;color:var(--navy);border:1px solid var(--line);font-w
 #files div{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ok{color:#15803d}.err{color:#b91c1c}
 #logoPrev{width:100%;height:110px;object-fit:contain;background:#fbfcfe;border:1px solid var(--line);border-radius:8px}
+#grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:6px}
+#grid button{aspect-ratio:1.5;background:#fff;border:1px solid var(--line);border-radius:6px;padding:0;font-size:11px;font-weight:400;color:var(--muted)}
+#grid button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 small{color:var(--muted);font-size:12px;line-height:1.7;display:block;margin-top:10px}
 @media(max-width:800px){main{grid-template-columns:1fr}}
 </style>
@@ -64,22 +67,35 @@ small{color:var(--muted);font-size:12px;line-height:1.7;display:block;margin-top
       <option value="mark">علامة مائية في المنتصف</option>
     </select>
 
-    <label>الموضع</label>
-    <select id="pos">
-      <option value="right">يمين</option>
-      <option value="left">يسار</option>
-    </select>
+    <label>موضع الشعار على الورقة</label>
+    <div id="grid">
+      <button data-x="right" data-y="top">أعلى يمين</button>
+      <button data-x="center" data-y="top">أعلى وسط</button>
+      <button data-x="left" data-y="top">أعلى يسار</button>
+      <button data-x="right" data-y="middle">وسط يمين</button>
+      <button data-x="center" data-y="middle">المنتصف</button>
+      <button data-x="left" data-y="middle">وسط يسار</button>
+      <button data-x="right" data-y="bottom">أسفل يمين</button>
+      <button data-x="center" data-y="bottom">أسفل وسط</button>
+      <button data-x="left" data-y="bottom">أسفل يسار</button>
+    </div>
 
     <label>حجم الشعار: <span id="szV">90</span></label>
-    <input type="range" id="sz" min="30" max="220" value="90">
+    <input type="range" id="sz" min="30" max="400" value="90">
 
     <label>الشفافية: <span id="opV">100%</span></label>
     <input type="range" id="op" min="10" max="100" value="100">
 
+    <label>الهامش الأفقي: <span id="mxV">22</span></label>
+    <input type="range" id="mx" min="0" max="150" value="22">
+
+    <label>الهامش الرأسي: <span id="myV">22</span></label>
+    <input type="range" id="my" min="0" max="150" value="22">
+
     <label>نص الترويسة (اختياري)</label>
     <textarea id="txt" placeholder="شركة اليامي للسفر والسياحة&#10;0500000000"></textarea>
 
-    <div class="row"><input type="checkbox" id="bg"><span>خلفية بيضاء خلف الترويسة</span></div>
+    <div class="row"><input type="checkbox" id="bg"><span>شريط أبيض خلف الشعار</span></div>
     <div class="row"><input type="checkbox" id="first"><span>الصفحة الأولى فقط</span></div>
 
     <small>الإعدادات تُحفظ تلقائياً. الملفات تُعالج داخل متصفحك ولا تُرفع لأي مكان.</small>
@@ -93,29 +109,37 @@ const { PDFDocument, rgb } = PDFLib;
 const $ = id => document.getElementById(id);
 const S = JSON.parse(localStorage.getItem('stamp') || '{}');
 let logo = S.logo || LOGO_DATA, queue = [];
+let px = S.px || 'right', py = S.py || 'top';
 
 $('brand').src = LOGO_DATA;
 $('logoPrev').src = logo;
-['mode','pos','txt'].forEach(k => { if (S[k] != null) $(k).value = S[k]; });
+['mode','txt'].forEach(k => { if (S[k] != null) $(k).value = S[k]; });
 ['bg','first'].forEach(k => { if (S[k] != null) $(k).checked = S[k]; });
-if (S.sz) $('sz').value = S.sz;
-if (S.op) $('op').value = S.op;
-$('szV').textContent = $('sz').value;
-$('opV').textContent = $('op').value + '%';
+['sz','op','mx','my'].forEach(k => { if (S[k] != null) $(k).value = S[k]; });
 
+function labels() {
+  $('szV').textContent = $('sz').value;
+  $('opV').textContent = $('op').value + '%';
+  $('mxV').textContent = $('mx').value;
+  $('myV').textContent = $('my').value;
+  [...$('grid').children].forEach(b =>
+    b.classList.toggle('on', b.dataset.x === px && b.dataset.y === py));
+}
 function save() {
   localStorage.setItem('stamp', JSON.stringify({
-    logo, mode: $('mode').value, pos: $('pos').value, txt: $('txt').value,
-    sz: $('sz').value, op: $('op').value, bg: $('bg').checked, first: $('first').checked
+    logo, mode: $('mode').value, px, py, txt: $('txt').value, sz: $('sz').value,
+    op: $('op').value, mx: $('mx').value, my: $('my').value,
+    bg: $('bg').checked, first: $('first').checked
   }));
 }
+$('grid').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  px = b.dataset.x; py = b.dataset.y; labels(); save();
+};
 document.querySelectorAll('select,textarea,input[type=range],input[type=checkbox]').forEach(e => {
-  e.addEventListener('input', () => {
-    $('szV').textContent = $('sz').value;
-    $('opV').textContent = $('op').value + '%';
-    save();
-  });
+  e.addEventListener('input', () => { labels(); save(); });
 });
+labels();
 
 $('drop').onclick = () => $('pick').click();
 $('drop').ondragover = e => { e.preventDefault(); $('drop').classList.add('on'); };
@@ -146,7 +170,7 @@ function render() {
 function textPng(text) {
   const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
   if (!lines.length) return null;
-  const F = 46, pad = 10, right = $('pos').value === 'right';
+  const F = 46, pad = 10;
   const c = document.createElement('canvas'), x = c.getContext('2d');
   const font = '600 ' + F + 'px Cairo, Segoe UI, Tahoma, sans-serif';
   x.font = font;
@@ -158,8 +182,8 @@ function textPng(text) {
   g.fillStyle = '#16324f';
   g.textBaseline = 'top';
   g.direction = 'rtl';
-  g.textAlign = right ? 'right' : 'left';
-  const ax = right ? c.width - pad : pad;
+  g.textAlign = px === 'left' ? 'left' : px === 'center' ? 'center' : 'right';
+  const ax = px === 'left' ? pad : px === 'center' ? c.width / 2 : c.width - pad;
   lines.forEach((l, i) => g.fillText(l, ax, pad + i * F * 1.35));
   return c.toDataURL('image/png');
 }
@@ -174,8 +198,9 @@ async function embed(doc, dataUrl) {
 $('go').onclick = async () => {
   $('go').disabled = true;
   await document.fonts.ready;
-  const mode = $('mode').value, right = $('pos').value === 'right';
+  const mode = $('mode').value;
   const lw = +$('sz').value, opacity = +$('op').value / 100;
+  const mx = +$('mx').value, my = +$('my').value, gap = 12;
   const tData = mode === 'head' ? textPng($('txt').value) : null;
 
   for (const q of queue) {
@@ -188,21 +213,26 @@ $('go').onclick = async () => {
 
       for (const p of pages) {
         const size = p.getSize(), W = size.width, H = size.height;
-        if (mode === 'mark') {
-          const w = W * 0.55, h = w * img.height / img.width;
-          p.drawImage(img, { x: (W - w) / 2, y: (H - h) / 2, width: w, height: h, opacity });
-          continue;
-        }
-        const m = 22, h = lw * img.height / img.width;
+        const w = Math.min(lw, W - mx * 2), h = w * img.height / img.width;
+        const x = px === 'right' ? W - mx - w : px === 'left' ? mx : (W - w) / 2;
+        const y = py === 'top' ? H - my - h : py === 'bottom' ? my : (H - h) / 2;
         const th = txt ? h * 0.6 : 0, tw = txt ? th * txt.width / txt.height : 0;
-        if ($('bg').checked)
-          p.drawRectangle({ x: 0, y: H - h - m * 1.5, width: W, height: h + m * 1.5, color: rgb(1, 1, 1) });
-        const lx = right ? W - m - lw : m;
-        p.drawImage(img, { x: lx, y: H - m - h, width: lw, height: h, opacity });
+        let tx = 0, ty = 0;
         if (txt) {
-          const tx = right ? lx - 12 - tw : lx + lw + 12;
-          p.drawImage(txt, { x: tx, y: H - m - h + (h - th) / 2, width: tw, height: th, opacity });
+          if (px === 'center') {
+            tx = (W - tw) / 2;
+            ty = py === 'bottom' ? y + h + gap : y - gap - th;
+          } else {
+            tx = px === 'right' ? x - gap - tw : x + w + gap;
+            ty = y + (h - th) / 2;
+          }
         }
+        if ($('bg').checked) {
+          const hi = Math.max(y + h, txt ? ty + th : 0), lo = Math.min(y, txt ? ty : H);
+          p.drawRectangle({ x: 0, y: lo - my / 2, width: W, height: hi - lo + my, color: rgb(1, 1, 1) });
+        }
+        p.drawImage(img, { x, y, width: w, height: h, opacity });
+        if (txt) p.drawImage(txt, { x: tx, y: ty, width: tw, height: th, opacity });
       }
 
       const out = await doc.save();
